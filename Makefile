@@ -7,7 +7,7 @@ OBJ=*.o
 SRC_FILES=src/*.c
 LIB_LINKS=-lssl -lcrypto -static
 
-all: fiutil
+all: clean fiutil
 
 fiutil: build.o
 	$(CC) $(CFLAGS) -I$(IPATH) -L$(LPATH) -o $(OUT) $(OBJ) $(LIB_LINKS)
