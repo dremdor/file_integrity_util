@@ -180,15 +180,15 @@ int check(char dir_name[256], const char *log_file) {
             }
         }
         if (found == 0) {
-            syslog(LOG_ERR, "file:%s was added", file_name);
-            printf("file:%s was added\n", file_name);
+            syslog(LOG_ERR, "file:%s was deleted", file_name);
+            printf("file:%s was deleted\n", file_name);
             err_flag = 0;
         }
     }
     for (int i = 0; i < size; ++i) {
         if (processed[i] == 0) {
-            syslog(LOG_ERR, "file:%s was deleted", file_list[i]);
-            printf("file:%s was deleted\n", file_list[i]);
+            syslog(LOG_ERR, "file:%s was added", file_list[i]);
+            printf("file:%s was added\n", file_list[i]);
             err_flag = 0;
         }
     }
