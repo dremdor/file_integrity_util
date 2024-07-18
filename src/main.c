@@ -13,10 +13,11 @@ void sha256sum(const char file_name[256], char buffer[65]);
 void write_log(const char buffer[65], const char log_file[256], const char file_name[256]);
 void usage_message();
 void set(char *dir_name, const char *log_file);
-int check(const char dir_name[256], const char *log_file);
+int check(char dir_name[256], const char *log_file);
 void info_message(char *mode, char *dir_name, char *log_file);
 int check_format(char *buffer);
-int get_file_list(const char *dir_name, char **file_list);
+int get_file_list(char *dir_name, char **file_list);
+void free_file_list(char **file_list, int size);
 
 int main(int argc, char **argv) {
     if (argc == 4) {
@@ -104,12 +105,13 @@ void set(char *dir_name, const char *log_file) {
     }
 
     DIR *dp = opendir(dir_name);
-    const struct dirent *entry;
     if (dp == NULL) {
         syslog(LOG_ERR, "can't open dir:%s", dir_name);
         printf("can't open dir:%s\n", dir_name);
         exit(2);
     }
+    const struct dirent *entry;
+
     FILE *tfp;
     tfp = fopen(log_file, "w");
     if (tfp == NULL) {
@@ -118,18 +120,19 @@ void set(char *dir_name, const char *log_file) {
         exit(1);
     }
     fclose(tfp);
+
     while ((entry = readdir(dp)) != NULL) {
         char file_name[512];
         sprintf(file_name, "%s/%s", dir_name, entry->d_name);
 
         struct stat path_stat;
         stat(file_name, &path_stat);
-        if (!S_ISDIR(path_stat.st_mode)) file_processing(file_name, log_file);
+        if (S_ISREG(path_stat.st_mode)) file_processing(file_name, log_file);
     }
     closedir(dp);
 }
 
-int check(const char dir_name[256], const char *log_file) {
+int check(char dir_name[256], const char *log_file) {
     FILE *fp = fopen(log_file, "r");
     if (fp == NULL) {
         syslog(LOG_ERR, "can't open %s log file", log_file);
@@ -140,6 +143,7 @@ int check(const char dir_name[256], const char *log_file) {
     int err_flag = 1;
     char **file_list = (char **)malloc(sizeof(char *) * 100);
     int size = get_file_list(dir_name, file_list);
+
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         if (check_format(buffer) == 0) {
             syslog(LOG_ERR, "incorrect format %s", log_file);
@@ -159,18 +163,59 @@ int check(const char dir_name[256], const char *log_file) {
                 in_list = 0;
             }
         }
-        char sum_from_file[65];
-        sha256sum(file_name, sum_from_file);
-        if (strcmp(sum_from_log, sum_from_file) != 0) {
-            syslog(LOG_ERR, "file:%s/%s has been modified", dir_name, log_file);
-            printf("file:%s/%s has been modified\n", dir_name, log_file);
+        if (in_list == 0) {
+            syslog(LOG_ERR, "file:%s/%s is added", dir_name, log_file);
+            printf("file:%s/%s is added\n", dir_name, log_file);
             err_flag = 0;
+        } else {
+            char sum_from_file[65];
+            sha256sum(file_name, sum_from_file);
+            if (strcmp(sum_from_log, sum_from_file) != 0) {
+                syslog(LOG_ERR, "file:%s/%s has been modified", dir_name, log_file);
+                printf("file:%s/%s has been modified\n", dir_name, log_file);
+                err_flag = 0;
+            }
         }
     }
+    free_file_list(file_list, size);
     fclose(fp);
     return err_flag;
 }
 
-// void get_file_list(const char *dir_name, char **file_list, int *size) {
-//
-// }
+int get_file_list(char *dir_name, char **file_list) {
+    size_t len = strlen(dir_name);
+    if (dir_name[len - 1] == '/') {
+        dir_name[len - 1] = '\0';
+    }
+
+    DIR *dp = opendir(dir_name);
+    if (dp == NULL) {
+        syslog(LOG_ERR, "can't open dir:%s", dir_name);
+        printf("can't open dir:%s\n", dir_name);
+        exit(2);
+    }
+
+    const struct dirent *entry;
+    int index = 0;
+    while ((entry = readdir(dp)) != NULL) {
+        char file_name[512];
+        sprintf(file_name, "%s/%s", dir_name, entry->d_name);
+
+        struct stat path_stat;
+        stat(file_name, &path_stat);
+        if (S_ISREG(path_stat.st_mode)) {
+            file_list[index] = (char *)malloc(strlen(entry->d_name) + 1);
+            strcpy(file_list[index], entry->d_name);
+            ++index;
+        }
+    }
+    closedir(dp);
+    return index;
+}
+
+void free_file_list(char **file_list, int size) {
+    for (int i = 0; i < size; ++i) {
+        free(file_list[i]);
+    }
+    free(file_list);
+}
