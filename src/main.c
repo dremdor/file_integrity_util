@@ -1,4 +1,5 @@
 #define OPENSSL_API_COMPAT 0x10100000L
+#include <ctype.h>
 #include <dirent.h>
 #include <openssl/sha.h>
 #include <stdio.h>
@@ -15,9 +16,11 @@ void usage_message();
 
 void set(char *dir_name, const char *log_file);
 
-void check();
+int check(char *dir_name, const char *log_file);
 
 void info_message(char *dir_name, char *log_file);
+
+void check_format(int *format_flag, char *buffer);
 
 int main(int argc, char **argv) {
     if (argc == 4) {
@@ -25,7 +28,11 @@ int main(int argc, char **argv) {
             set(argv[2], argv[3]);
             info_message(argv[2], argv[3]);
         } else if (strcmp(argv[1], "check") == 0) {
-            check();
+            if (check(argv[2], argv[3]) == 1)
+                printf("all good");
+            else
+                printf("all bad");
+            // info_message(argv[2], argv[3]);
         } else
             usage_message();
     } else
@@ -33,16 +40,25 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+void check_format(int *format_flag, char *buffer) {
+    buffer[strcspn(buffer, "\n")] = '\0';
+    if (strlen(buffer) < 67) *format_flag = 0;
+    for (int i = 0; i < 64 && *format_flag; ++i) {
+        if (isxdigit(buffer[i]) == 0) *format_flag = 0;
+    }
+    if (!(buffer[64] == ' ' && buffer[65] == ' ')) *format_flag = 0;
+}
+
 void info_message(char *dir_name, char *log_file) {
-            syslog(LOG_INFO, "dir:%s integrity certified, created %s log file", dir_name, log_file);
-            printf("dir:%s integrity certified, created %s log file\n", dir_name, log_file);
+    syslog(LOG_INFO, "dir:%s integrity certified, created %s log file", dir_name, log_file);
+    printf("dir:%s integrity certified, created %s log file\n", dir_name, log_file);
 }
 
 void file_processing(const char file_name[256], const char *log_file) {
     FILE *fp;
     fp = fopen(file_name, "rb");
     if (fp == NULL) {
-        printf("n/a\n");
+        syslog(LOG_ERR, "can't open %s file", file_name);
         exit(1);
     }
     SHA256_CTX c;
@@ -105,4 +121,18 @@ void set(char *dir_name, const char *log_file) {
     closedir(dp);
 }
 
-void check() { printf("check"); }
+int check(char *dir_name, const char *log_file) {
+    int format_flag = 1;
+    FILE *fp = fopen(log_file, "r");
+    if (fp == NULL) {
+        syslog(LOG_ERR, "can't open %s log file", log_file);
+        exit(3);
+    }
+    char buffer[512];
+    while (fgets(buffer, sizeof(buffer), fp) != NULL && format_flag == 1) {
+        check_format(&format_flag, buffer);
+    }
+    fclose(fp);
+    (void)dir_name;
+    return format_flag;
+}
