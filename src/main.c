@@ -12,34 +12,14 @@ void write_log(const char buffer[65], const char test_file[256], const char file
 
 void print_message();
 
+int set(char *argv);
+
 int main(int argc, char **argv) {
     if (argc == 1)
         print_message();
     else if (argc == 3) {
         if (strcmp(argv[1], "set") == 0) {
-            char dir_name[256] = "";
-            strcpy(dir_name, argv[2]);
-
-            size_t len = strlen(dir_name);
-            if (dir_name[len - 1] == '/') {
-                dir_name[len - 1] = '\0';
-            }
-
-            DIR *dp = opendir(dir_name);
-            const struct dirent *entry;
-            if (dp == NULL) {
-                printf("n/a\n");
-                exit(2);
-            }
-            while ((entry = readdir(dp)) != NULL) {
-                char file_name[512];
-                sprintf(file_name, "%s/%s", dir_name, entry->d_name);
-
-                struct stat path_stat;
-                stat(file_name, &path_stat);
-                if (!S_ISDIR(path_stat.st_mode)) file_processing(file_name);
-            }
-            closedir(dp);
+            set(argv[2]);
         }
     }
     return 0;
@@ -85,3 +65,27 @@ void write_log(const char buffer[65], const char test_file[256], const char file
 }
 
 void print_message() { printf("Usage: ./fiutils [set|check] [path_to_dir|path_to_log]\n"); }
+
+int set(char *dir_name) {
+    size_t len = strlen(dir_name);
+    if (dir_name[len - 1] == '/') {
+        dir_name[len - 1] = '\0';
+    }
+
+    DIR *dp = opendir(dir_name);
+    const struct dirent *entry;
+    if (dp == NULL) {
+        printf("n/a\n");
+        exit(2);
+    }
+    while ((entry = readdir(dp)) != NULL) {
+        char file_name[512];
+        sprintf(file_name, "%s/%s", dir_name, entry->d_name);
+
+        struct stat path_stat;
+        stat(file_name, &path_stat);
+        if (!S_ISDIR(path_stat.st_mode)) file_processing(file_name);
+    }
+    closedir(dp);
+    return 0;
+}
