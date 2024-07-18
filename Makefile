@@ -1,6 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Werror -Wextra
-IPATH=/home/dremdor/openssl/include
+CFLAGS=-Wall -Werror -Wextra 
 LPATH=/home/dremdor/openssl/lib64
 OUT=fiutil
 OBJ=*.o
@@ -10,7 +9,7 @@ LIB_LINKS=-lssl -lcrypto -static
 all: clean fiutil
 
 fiutil: build.o
-	$(CC) $(CFLAGS) -I$(IPATH) -L$(LPATH) -o $(OUT) $(OBJ) $(LIB_LINKS)
+	$(CC) $(CFLAGS) -L$(LPATH) -o $(OUT) $(OBJ) $(LIB_LINKS)
 	rm -rf $(OBJ)
 
 build.o:
@@ -22,5 +21,5 @@ test: clean $(OUT)
 	diff -s test.txt test2.txt
 
 clean:
-	rm -rf $(OUT) $(OBJ) test*.txt
+	rm -rf $(OUT) $(OBJ) *.txt
 

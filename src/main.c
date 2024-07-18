@@ -23,8 +23,7 @@ int main(int argc, char **argv) {
     if (argc == 4) {
         if (strcmp(argv[1], "set") == 0) {
             set(argv[2], argv[3]);
-            syslog(LOG_INFO, "dir:%s integrity certified, created %s log file", argv[2], argv[3]);
-            printf("dir:%s integrity certified, created %s log file\n", argv[2], argv[3]);
+            info_message(argv[2], argv[3]);
         } else if (strcmp(argv[1], "check") == 0) {
             check();
         } else
@@ -34,7 +33,10 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void info_message(char *dir_name, char *log_file);
+void info_message(char *dir_name, char *log_file) {
+            syslog(LOG_INFO, "dir:%s integrity certified, created %s log file", dir_name, log_file);
+            printf("dir:%s integrity certified, created %s log file\n", dir_name, log_file);
+}
 
 void file_processing(const char file_name[256], const char *log_file) {
     FILE *fp;
