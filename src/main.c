@@ -9,27 +9,32 @@
 
 void file_processing(const char file_name[256], const char *log_file);
 
-void write_log(const char buffer[65], const char test_file[256], const char file_name[256]);
+void write_log(const char buffer[65], const char log_file[256], const char file_name[256]);
 
-void print_message();
+void usage_message();
 
 void set(char *dir_name, const char *log_file);
 
 void check();
 
+void info_message(char *dir_name, char *log_file);
+
 int main(int argc, char **argv) {
     if (argc == 4) {
         if (strcmp(argv[1], "set") == 0) {
             set(argv[2], argv[3]);
-            syslog(LOG_INFO, "dir:%s is under control, created %s log file", argv[2], argv[3]);
+            syslog(LOG_INFO, "dir:%s integrity certified, created %s log file", argv[2], argv[3]);
+            printf("dir:%s integrity certified, created %s log file\n", argv[2], argv[3]);
         } else if (strcmp(argv[1], "check") == 0) {
             check();
         } else
-            print_message();
+            usage_message();
     } else
-        print_message();
+        usage_message();
     return 0;
 }
+
+void info_message(char *dir_name, char *log_file);
 
 void file_processing(const char file_name[256], const char *log_file) {
     FILE *fp;
@@ -58,18 +63,18 @@ void file_processing(const char file_name[256], const char *log_file) {
     write_log(buffer, log_file, file_name);
 }
 
-void write_log(const char buffer[65], const char test_file[256], const char file_name[256]) {
+void write_log(const char buffer[65], const char log_file[256], const char file_name[256]) {
     FILE *tfp;
-    tfp = fopen(test_file, "a+");
+    tfp = fopen(log_file, "a+");
     if (tfp == NULL) {
-        printf("n/a\n");
+        syslog(LOG_ERR, "can't open %s log file", log_file);
         exit(1);
     }
     fprintf(tfp, "%s  %s\n", buffer, file_name);
     fclose(tfp);
 }
 
-void print_message() {
+void usage_message() {
     printf(
         "Usage: ./fiutils set [path_to_dir] [path_to_log_file]\nOr: ./fiutils check [path_to_dir] "
         "[path_to_log_file]\n");
@@ -84,7 +89,7 @@ void set(char *dir_name, const char *log_file) {
     DIR *dp = opendir(dir_name);
     const struct dirent *entry;
     if (dp == NULL) {
-        printf("n/a\n");
+        syslog(LOG_ERR, "can't open dir:%s", dir_name);
         exit(2);
     }
     while ((entry = readdir(dp)) != NULL) {
