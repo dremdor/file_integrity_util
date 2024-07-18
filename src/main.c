@@ -58,10 +58,7 @@ void file_processing(const char file_name[256], const char *log_file) {
 void sha256sum(const char file_name[256], char buffer[65]) {
     FILE *fp;
     fp = fopen(file_name, "rb");
-    if (fp == NULL) {
-        syslog(LOG_ERR, "file:%s was deleted\n", file_name);
-        printf("file:%s was deleted\n", file_name);
-    } else {
+    if (fp != NULL) {
         SHA256_CTX c;
         SHA256_Init(&c);
         char data[2048] = "";
@@ -144,39 +141,49 @@ int check(char dir_name[256], const char *log_file) {
     char **file_list = (char **)malloc(sizeof(char *) * 100);
     int size = get_file_list(dir_name, file_list);
 
+    int *processed = (int *)calloc(sizeof(int), size);
+
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         if (check_format(buffer) == 0) {
             syslog(LOG_ERR, "incorrect format %s", log_file);
             printf("incorrect format %s\n", log_file);
             fclose(fp);
+            free(processed);
+            free_file_list(file_list, size);
             exit(4);
         }
-    }
-    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         char sum_from_log[65];
         char file_name[256];
         sscanf(buffer, "%64s  %255s", sum_from_log, file_name);
 
-        int in_list = 1;
-        for (int i = 0; i < size && in_list; ++i) {
-            if (strcmp(file_list[i], file_name) == 0) {
-                in_list = 0;
+        int found = 0;
+        for (int i = 0; i < size; ++i) {
+            if (processed[i] == 0 && strcmp(file_list[i], file_name) == 0) {
+                found = 1;
+                processed[i] = 1;
+                char sum_from_file[65];
+                sha256sum(file_name, sum_from_file);
+                if (strcmp(sum_from_log, sum_from_file) != 0) {
+                    syslog(LOG_ERR, "file:%s/%s was modified", dir_name, file_name);
+                    printf("file:%s/%s was modified\n", dir_name, file_name);
+                    err_flag = 0;
+                }
+                break;
             }
         }
-        if (in_list == 0) {
-            syslog(LOG_ERR, "file:%s/%s is added", dir_name, log_file);
-            printf("file:%s/%s is added\n", dir_name, log_file);
+        if (found == 0) {
+            syslog(LOG_ERR, "file:%s/%s was added", dir_name, file_name);
+            printf("file:%s/%s was added\n", dir_name, file_name);
             err_flag = 0;
-        } else {
-            char sum_from_file[65];
-            sha256sum(file_name, sum_from_file);
-            if (strcmp(sum_from_log, sum_from_file) != 0) {
-                syslog(LOG_ERR, "file:%s/%s has been modified", dir_name, log_file);
-                printf("file:%s/%s has been modified\n", dir_name, log_file);
-                err_flag = 0;
-            }
         }
     }
+    for (int i = 0; i < size; ++i) {
+        if (processed[i] == 0) {
+            syslog(LOG_ERR, "file:%s/%s was deleted\n", dir_name, file_list[i]);
+            printf("file:%s/%s was deleted\n", dir_name, file_list[i]);
+        }
+    }
+    free(processed);
     free_file_list(file_list, size);
     fclose(fp);
     return err_flag;
