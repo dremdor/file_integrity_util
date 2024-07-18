@@ -15,7 +15,8 @@ void usage_message();
 void set(char *dir_name, const char *log_file);
 int check(const char dir_name[256], const char *log_file);
 void info_message(char *mode, char *dir_name, char *log_file);
-void check_format(int *format_flag, char *buffer);
+int check_format(char *buffer);
+int get_file_list(const char *dir_name, char **file_list);
 
 int main(int argc, char **argv) {
     if (argc == 4) {
@@ -31,13 +32,15 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void check_format(int *format_flag, char *buffer) {
+int check_format(char *buffer) {
+    int format_flag = 1;
     buffer[strcspn(buffer, "\n")] = '\0';
-    if (strlen(buffer) < 67) *format_flag = 0;
-    for (int i = 0; i < 64 && *format_flag; ++i) {
-        if (isxdigit(buffer[i]) == 0) *format_flag = 0;
+    if (strlen(buffer) < 67) format_flag = 0;
+    for (int i = 0; i < 64 && format_flag; ++i) {
+        if (isxdigit(buffer[i]) == 0) format_flag = 0;
     }
-    if (!(buffer[64] == ' ' && buffer[65] == ' ')) *format_flag = 0;
+    if (!(buffer[64] == ' ' && buffer[65] == ' ')) format_flag = 0;
+    return format_flag;
 }
 
 void info_message(char *mode, char *dir_name, char *log_file) {
@@ -107,6 +110,14 @@ void set(char *dir_name, const char *log_file) {
         printf("can't open dir:%s\n", dir_name);
         exit(2);
     }
+    FILE *tfp;
+    tfp = fopen(log_file, "w");
+    if (tfp == NULL) {
+        syslog(LOG_ERR, "can't open %s log file", log_file);
+        printf("can't open %s log file\n", log_file);
+        exit(1);
+    }
+    fclose(tfp);
     while ((entry = readdir(dp)) != NULL) {
         char file_name[512];
         sprintf(file_name, "%s/%s", dir_name, entry->d_name);
@@ -119,7 +130,6 @@ void set(char *dir_name, const char *log_file) {
 }
 
 int check(const char dir_name[256], const char *log_file) {
-    int format_flag = 1;
     FILE *fp = fopen(log_file, "r");
     if (fp == NULL) {
         syslog(LOG_ERR, "can't open %s log file", log_file);
@@ -128,17 +138,27 @@ int check(const char dir_name[256], const char *log_file) {
     }
     char buffer[512];
     int err_flag = 1;
+    char **file_list = (char **)malloc(sizeof(char *) * 100);
+    int size = get_file_list(dir_name, file_list);
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-        check_format(&format_flag, buffer);
-        if (format_flag == 0) {
+        if (check_format(buffer) == 0) {
             syslog(LOG_ERR, "incorrect format %s", log_file);
             printf("incorrect format %s\n", log_file);
             fclose(fp);
             exit(4);
         }
+    }
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         char sum_from_log[65];
         char file_name[256];
         sscanf(buffer, "%64s  %255s", sum_from_log, file_name);
+
+        int in_list = 1;
+        for (int i = 0; i < size && in_list; ++i) {
+            if (strcmp(file_list[i], file_name) == 0) {
+                in_list = 0;
+            }
+        }
         char sum_from_file[65];
         sha256sum(file_name, sum_from_file);
         if (strcmp(sum_from_log, sum_from_file) != 0) {
@@ -150,3 +170,7 @@ int check(const char dir_name[256], const char *log_file) {
     fclose(fp);
     return err_flag;
 }
+
+// void get_file_list(const char *dir_name, char **file_list, int *size) {
+//
+// }
