@@ -5,27 +5,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <syslog.h>
 
-void file_processing(const char file_name[256]);
+void file_processing(const char file_name[256], const char *log_file);
 
 void write_log(const char buffer[65], const char test_file[256], const char file_name[256]);
 
 void print_message();
 
-int set(char *argv);
+void set(char *dir_name, const char *log_file);
+
+void check();
 
 int main(int argc, char **argv) {
-    if (argc == 1)
-        print_message();
-    else if (argc == 3) {
+    if (argc == 4) {
         if (strcmp(argv[1], "set") == 0) {
-            set(argv[2]);
-        }
-    }
+            set(argv[2], argv[3]);
+            syslog(LOG_INFO, "dir:%s is under control, created %s log file", argv[2], argv[3]);
+        } else if (strcmp(argv[1], "check") == 0) {
+            check();
+        } else
+            print_message();
+    } else
+        print_message();
     return 0;
 }
 
-void file_processing(const char file_name[256]) {
+void file_processing(const char file_name[256], const char *log_file) {
     FILE *fp;
     fp = fopen(file_name, "rb");
     if (fp == NULL) {
@@ -49,8 +55,7 @@ void file_processing(const char file_name[256]) {
     }
     buffer[64] = '\0';
 
-    const char test_file[256] = "test.txt";
-    write_log(buffer, test_file, file_name);
+    write_log(buffer, log_file, file_name);
 }
 
 void write_log(const char buffer[65], const char test_file[256], const char file_name[256]) {
@@ -64,9 +69,13 @@ void write_log(const char buffer[65], const char test_file[256], const char file
     fclose(tfp);
 }
 
-void print_message() { printf("Usage: ./fiutils [set|check] [path_to_dir|path_to_log]\n"); }
+void print_message() {
+    printf(
+        "Usage: ./fiutils set [path_to_dir] [path_to_log_file]\nOr: ./fiutils check [path_to_dir] "
+        "[path_to_log_file]\n");
+}
 
-int set(char *dir_name) {
+void set(char *dir_name, const char *log_file) {
     size_t len = strlen(dir_name);
     if (dir_name[len - 1] == '/') {
         dir_name[len - 1] = '\0';
@@ -84,8 +93,9 @@ int set(char *dir_name) {
 
         struct stat path_stat;
         stat(file_name, &path_stat);
-        if (!S_ISDIR(path_stat.st_mode)) file_processing(file_name);
+        if (!S_ISDIR(path_stat.st_mode)) file_processing(file_name, log_file);
     }
     closedir(dp);
-    return 0;
 }
+
+void check() { printf("check"); }
