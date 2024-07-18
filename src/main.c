@@ -36,11 +36,13 @@ int main(int argc, char **argv) {
 int check_format(char *buffer) {
     int format_flag = 1;
     buffer[strcspn(buffer, "\n")] = '\0';
+
     if (strlen(buffer) < 67) format_flag = 0;
     for (int i = 0; i < 64 && format_flag; ++i) {
         if (isxdigit(buffer[i]) == 0) format_flag = 0;
     }
     if (!(buffer[64] == ' ' && buffer[65] == ' ')) format_flag = 0;
+
     return format_flag;
 }
 
@@ -61,11 +63,14 @@ void sha256sum(const char file_name[256], char buffer[65]) {
     if (fp != NULL) {
         SHA256_CTX c;
         SHA256_Init(&c);
+
         char data[2048] = "";
         size_t len;
+
         while ((len = fread(data, 1, sizeof(data), fp)) > 0) {
             SHA256_Update(&c, data, len);
         }
+
         unsigned char sum[SHA256_DIGEST_LENGTH];
         SHA256_Final(sum, &c);
 
@@ -73,6 +78,7 @@ void sha256sum(const char file_name[256], char buffer[65]) {
             sprintf(buffer + i * 2, "%02x", sum[i]);
         }
         buffer[64] = '\0';
+
         fclose(fp);
     }
 }
@@ -85,6 +91,7 @@ void write_log(const char buffer[65], const char log_file[256], const char file_
         printf("can't open %s log file\n", log_file);
         exit(1);
     }
+
     fprintf(tfp, "%s  %s\n", buffer, file_name);
     fclose(tfp);
 }
@@ -107,8 +114,8 @@ void set(char *dir_name, const char *log_file) {
         printf("can't open dir:%s\n", dir_name);
         exit(2);
     }
-    const struct dirent *entry;
 
+    const struct dirent *entry;
     FILE *tfp;
     tfp = fopen(log_file, "w");
     if (tfp == NULL) {
@@ -136,12 +143,12 @@ int check(char dir_name[256], const char *log_file) {
         printf("can't open %s log file\n", log_file);
         exit(3);
     }
+
     char buffer[512];
     int err_flag = 1;
     char **file_list = (char **)malloc(sizeof(char *) * 100);
     int size = get_file_list(dir_name, file_list);
-
-    int *processed = (int *)calloc(sizeof(int), size);
+    int *processed = (int *)calloc(size, sizeof(int));
 
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         if (check_format(buffer) == 0) {
@@ -152,6 +159,7 @@ int check(char dir_name[256], const char *log_file) {
             free_file_list(file_list, size);
             exit(4);
         }
+
         char sum_from_log[65];
         char file_name[256];
         sscanf(buffer, "%64s  %255s", sum_from_log, file_name);
@@ -164,23 +172,24 @@ int check(char dir_name[256], const char *log_file) {
                 char sum_from_file[65];
                 sha256sum(file_name, sum_from_file);
                 if (strcmp(sum_from_log, sum_from_file) != 0) {
-                    syslog(LOG_ERR, "file:%s/%s was modified", dir_name, file_name);
-                    printf("file:%s/%s was modified\n", dir_name, file_name);
+                    syslog(LOG_ERR, "file:%s was modified", file_name);
+                    printf("file:%s was modified\n", file_name);
                     err_flag = 0;
                 }
                 break;
             }
         }
         if (found == 0) {
-            syslog(LOG_ERR, "file:%s/%s was added", dir_name, file_name);
-            printf("file:%s/%s was added\n", dir_name, file_name);
+            syslog(LOG_ERR, "file:%s was added", file_name);
+            printf("file:%s was added\n", file_name);
             err_flag = 0;
         }
     }
     for (int i = 0; i < size; ++i) {
         if (processed[i] == 0) {
-            syslog(LOG_ERR, "file:%s/%s was deleted\n", dir_name, file_list[i]);
-            printf("file:%s/%s was deleted\n", dir_name, file_list[i]);
+            syslog(LOG_ERR, "file:%s was deleted", file_list[i]);
+            printf("file:%s was deleted\n", file_list[i]);
+            err_flag = 0;
         }
     }
     free(processed);
@@ -212,7 +221,7 @@ int get_file_list(char *dir_name, char **file_list) {
         stat(file_name, &path_stat);
         if (S_ISREG(path_stat.st_mode)) {
             file_list[index] = (char *)malloc(strlen(entry->d_name) + 1);
-            strcpy(file_list[index], entry->d_name);
+            sprintf(file_list[index], "%s/%s", dir_name, entry->d_name);
             ++index;
         }
     }
