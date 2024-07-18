@@ -16,6 +16,7 @@ build.o:
 	$(CC) -c $(CFLAGS) $(SRC_FILES) 
 
 test: clean $(OUT)
+	mkdir test
 	echo "hello" > test/1.txt
 	echo "world" > test/2.txt
 	echo "!" > test/3.txt
