@@ -9,19 +9,12 @@
 #include <syslog.h>
 
 void file_processing(const char file_name[256], const char *log_file);
-
 void sha256sum(const char file_name[256], char buffer[65]);
-
 void write_log(const char buffer[65], const char log_file[256], const char file_name[256]);
-
 void usage_message();
-
 void set(char *dir_name, const char *log_file);
-
-int check(const char *log_file);
-
+int check(const char dir_name[256], const char *log_file);
 void info_message(char *mode, char *dir_name, char *log_file);
-
 void check_format(int *format_flag, char *buffer);
 
 int main(int argc, char **argv) {
@@ -30,7 +23,7 @@ int main(int argc, char **argv) {
             set(argv[2], argv[3]);
             info_message(argv[1], argv[2], argv[3]);
         } else if (strcmp(argv[1], "check") == 0) {
-            if (check(argv[3])) info_message(argv[1], argv[2], argv[3]);
+            if (check(argv[2], argv[3])) info_message(argv[1], argv[2], argv[3]);
         } else
             usage_message();
     } else
@@ -62,25 +55,25 @@ void sha256sum(const char file_name[256], char buffer[65]) {
     FILE *fp;
     fp = fopen(file_name, "rb");
     if (fp == NULL) {
-        syslog(LOG_ERR, "can't open %s file", file_name);
-        printf("can't open %s file\n", file_name);
-        exit(1);
-    }
-    SHA256_CTX c;
-    SHA256_Init(&c);
-    char data[2048] = "";
-    size_t len;
-    while ((len = fread(data, 1, sizeof(data), fp)) > 0) {
-        SHA256_Update(&c, data, len);
-    }
-    unsigned char sum[SHA256_DIGEST_LENGTH];
-    SHA256_Final(sum, &c);
+        syslog(LOG_ERR, "file:%s was deleted\n", file_name);
+        printf("file:%s was deleted\n", file_name);
+    } else {
+        SHA256_CTX c;
+        SHA256_Init(&c);
+        char data[2048] = "";
+        size_t len;
+        while ((len = fread(data, 1, sizeof(data), fp)) > 0) {
+            SHA256_Update(&c, data, len);
+        }
+        unsigned char sum[SHA256_DIGEST_LENGTH];
+        SHA256_Final(sum, &c);
 
-    for (int i = 0; i < 32; ++i) {
-        sprintf(buffer + i * 2, "%02x", sum[i]);
+        for (int i = 0; i < 32; ++i) {
+            sprintf(buffer + i * 2, "%02x", sum[i]);
+        }
+        buffer[64] = '\0';
+        fclose(fp);
     }
-    buffer[64] = '\0';
-    fclose(fp);
 }
 
 void write_log(const char buffer[65], const char log_file[256], const char file_name[256]) {
@@ -125,7 +118,7 @@ void set(char *dir_name, const char *log_file) {
     closedir(dp);
 }
 
-int check(const char *log_file) {
+int check(const char dir_name[256], const char *log_file) {
     int format_flag = 1;
     FILE *fp = fopen(log_file, "r");
     if (fp == NULL) {
@@ -149,8 +142,8 @@ int check(const char *log_file) {
         char sum_from_file[65];
         sha256sum(file_name, sum_from_file);
         if (strcmp(sum_from_log, sum_from_file) != 0) {
-            syslog(LOG_ERR, "file:%s has been modified", log_file);
-            printf("file:%s has been modified\n", log_file);
+            syslog(LOG_ERR, "file:%s/%s has been modified", dir_name, log_file);
+            printf("file:%s/%s has been modified\n", dir_name, log_file);
             err_flag = 0;
         }
     }
