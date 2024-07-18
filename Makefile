@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-Wall -Werror -Wextra 
-LPATH=/home/dremdor/openssl/lib64
+LPATH=~/openssl/lib64
 OUT=fiutil
 OBJ=*.o
 SRC_FILES=src/*.c
